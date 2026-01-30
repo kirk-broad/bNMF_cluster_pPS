@@ -1,0 +1,5 @@
+*.vcf.gz
+*.tbi
+temp_*/
+pPS_results_*/
+.DS_Store
