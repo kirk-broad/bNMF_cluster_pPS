@@ -316,6 +316,46 @@ $PLINK2_PATH --vcf "$COMBINED_VCF" \
     --out "${OUTPUT_DIR}/prs_scores"
 
 #============================================================================
+# STEP 7: GENERATE SUMMARY STATISTICS AND PLOTS
+#============================================================================
+
+if [ "$START_STEP" -le 7 ]; then
+
+    if [ "$ENABLE_SUMMARY_PLOTS" = true ]; then
+        echo ""
+        echo "============================================================================"
+        echo "STEP 7: Generating summary statistics and plots"
+        echo "============================================================================"
+        
+        if [ -f "${OUTPUT_DIR}/prs_scores.sscore" ]; then
+            echo "Generating summary plots..."
+            
+            # Run the plotting script
+            Rscript "${SCRIPT_DIR}/pPS_summary_plots.R" \
+                "${OUTPUT_DIR}/prs_scores.sscore" \
+                "$WEIGHT_FILE" \
+                "${OUTPUT_DIR}"
+            
+            echo "Generating SNP-level MAF analysis..."
+            # Note: We need a MAF file. This command generates one if it doesn't exist
+            $BCFTOOLS_PATH query -f '%CHROM\t%POS\t%REF\t%ALT\t%AF\n' "$COMBINED_VCF" > "${OUTPUT_DIR}/temp_maf.txt"
+            
+            Rscript "${SCRIPT_DIR}/generate_snp_level_maf.R" \
+                "${OUTPUT_DIR}/temp_maf.txt" \
+                "$WEIGHT_FILE" \
+                "${OUTPUT_DIR}"
+                
+            rm "${OUTPUT_DIR}/temp_maf.txt"
+        else
+            echo "ERROR: PRS scores file not found. Check PLINK2 output."
+            exit 1
+        fi
+    fi
+fi
+
+echo "Pipeline completed successfully at $(date)."
+
+#============================================================================
 # FINISH
 #============================================================================
 echo "Pipeline completed successfully."
