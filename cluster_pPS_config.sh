@@ -21,6 +21,7 @@ VCF_PATH_TEMPLATE="/PATH/TO/VCF/FILE/FILE_NAME.chr{CHR}.vcf.gz"
 # 2. sorted_cluster_weights_K*_rev.xlsx (The raw weights)
 # 3. alignment_GWAS_summStats.csv
 CLUSTER_WEIGHTS_DIR="/PATH/TO/CLUSTER_WEIGHTS"
+INPUT_WEIGHTS_FILE="NatMed_cluster_weights.tsv"  # <-- UPDATE FILE NAME
 
 # Analysis Parameters
 GENOME_BUILD="hg38"                           # Options: "hg19" or "hg38"

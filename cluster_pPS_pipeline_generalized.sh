@@ -73,7 +73,7 @@ if [ "$START_STEP" -le 1 ]; then
         echo "Skipping setup script."
     else
         echo "Running setup script..."
-        Rscript "${SCRIPT_DIR}/cluster_weights_setup_generalized.R" "$CLUSTER_WEIGHTS_DIR" "$CUTOFF" "$CHAIN_FILE_PATH" "$GENOME_BUILD" "$OUTPUT_DIR"
+        Rscript "${SCRIPT_DIR}/cluster_weights_setup_generalized.R" "$CLUSTER_WEIGHTS_DIR" "$INPUT_WEIGHTS_FILE" "$CUTOFF" "$CHAIN_FILE_PATH" "$GENOME_BUILD" "$OUTPUT_DIR"
         
         if [ ! -f "$WEIGHTS_OUTPUT" ]; then 
             echo "ERROR: Weights file generation failed."
@@ -152,7 +152,10 @@ if [ "$START_STEP" -le 2 ]; then
         
         if [ ! -f "$VCF_FILE" ]; then echo "WARNING: VCF missing for chr $chr"; continue; fi
         
-        $BCFTOOLS_PATH view -R "${OUTPUT_DIR}/bcftools_input.txt" -Oz -o "$OUTPUT_VCF" "$VCF_FILE"
+        $BCFTOOLS_PATH view -R "${OUTPUT_DIR}/bcftools_input.txt" -Ou "$VCF_FILE" | \
+        $BCFTOOLS_PATH norm -m -any -Ou | \
+        $BCFTOOLS_PATH annotate --set-id '%CHROM:%POS:%REF:%ALT' -Oz -o "$OUTPUT_VCF"
+
         $BCFTOOLS_PATH index "$OUTPUT_VCF" --tbi
         
         num_variants=$($BCFTOOLS_PATH view -H "$OUTPUT_VCF" | wc -l)
@@ -239,17 +242,15 @@ if [ "$START_STEP" -le 4 ]; then
             fi
             
             # Use updated_bcftools_input.txt which contains proxies
-            $BCFTOOLS_PATH view -R "${OUTPUT_DIR}/updated_bcftools_input.txt" -Oz -o "$OUTPUT_VCF" "$VCF_FILE"
+            $BCFTOOLS_PATH view -R "${OUTPUT_DIR}/updated_bcftools_input.txt" -Ou "$VCF_FILE" | \
+            $BCFTOOLS_PATH norm -m -any -Ou | \
+            $BCFTOOLS_PATH annotate --set-id '%CHROM:%POS:%REF:%ALT' -Oz -o "$OUTPUT_VCF"
             # ADDED -f here
             $BCFTOOLS_PATH index -f "$OUTPUT_VCF" --tbi
             
             num_variants=$($BCFTOOLS_PATH view -H "$OUTPUT_VCF" | wc -l)
             if [ "$num_variants" -gt 0 ]; then
                 echo "$OUTPUT_VCF" >> "$VCF_LIST"
-                # Ensure IDs are standardized to CHR:POS:REF:ALT to help PLINK matching
-                $BCFTOOLS_PATH annotate --set-id '%CHROM:%POS:%REF:%ALT' "$OUTPUT_VCF" -Oz -o "${OUTPUT_VCF}.tmp"
-                mv "${OUTPUT_VCF}.tmp" "$OUTPUT_VCF"
-                # ADDED -f here too
                 $BCFTOOLS_PATH index -f "$OUTPUT_VCF" --tbi
             else
                 rm -f "$OUTPUT_VCF" "${OUTPUT_VCF}.tbi"
@@ -292,7 +293,6 @@ $BCFTOOLS_PATH query -f '%CHROM:%POS:%REF:%ALT\n' "$COMBINED_VCF" > "${OUTPUT_DI
 Rscript "${SCRIPT_DIR}/update_weights_allele_alignment.R" \
     "$WEIGHT_FILE" \
     "${OUTPUT_DIR}/vcf_variant_ids.txt" \
-    "${OUTPUT_DIR}/cluster_names.txt" \
     "${OUTPUT_DIR}/updated_cluster_weights_aligned.txt"
 
 WEIGHT_FILE="${OUTPUT_DIR}/updated_cluster_weights_aligned.txt"

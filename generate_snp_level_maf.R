@@ -87,6 +87,6 @@ p <- ggplot(merged_data, aes(x = risk_allele_freq)) +
        x = "RAF",
        y = "Count")
 
-output_plot <- file.path(output_dir, "snp_level_maf_distribution.pdf")
-ggsave(output_plot, p, width = 6, height = 4)
+output_plot <- file.path(output_dir, "snp_level_maf_distribution.png")
+ggsave(output_plot, p, width = 10, height = 8, units='in',dpi = 300)
 cat("Saved MAF plot to:", output_plot, "\n")

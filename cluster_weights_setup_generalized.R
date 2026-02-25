@@ -11,35 +11,49 @@ suppressPackageStartupMessages({
 
 # 1. Parse Arguments
 args <- commandArgs(trailingOnly = TRUE)
-if (length(args) < 5) stop("Usage: script.R <weights_dir> <cutoff> <chain_file> <genome_build> <output_dir>")
+if (length(args) < 6) stop("Usage: script.R <weights_dir> <input_weights_file> <cutoff> <chain_file> <genome_build> <output_dir>")
 
 weights_dir <- args[1]
-cutoff <- as.numeric(args[2])
-chain_file <- args[3]
-genome_build <- args[4]
-output_dir <- args[5]
+input_weights_file <- args[2]  # <-- NEW
+cutoff <- as.numeric(args[3])
+chain_file <- args[4]
+genome_build <- args[5]
+output_dir <- args[6]
 
 cat("------------------------------------------------\n")
 cat("STEP 1: Setting up Cluster Weights (Single File Mode)\n")
 cat("------------------------------------------------\n")
 
-# 2. Read Cluster Names
-# We still read this to know which columns are clusters vs metadata
-cluster_names_file <- file.path(weights_dir, 'cluster_names.txt')
-if (!file.exists(cluster_names_file)) stop("Cluster names file not found: ", cluster_names_file)
-cluster_names <- read_lines(cluster_names_file)
-
 # 3. Read The Single Consolidated Weights File
-weights_file <- file.path(weights_dir, "cluster_weights.tsv")
+# 3. Read The Single Consolidated Weights File
+weights_file <- file.path(weights_dir, input_weights_file)
 if (!file.exists(weights_file)) stop("Weights file not found: ", weights_file)
 
 cat("Reading weights from:", weights_file, "\n")
 df <- fread(weights_file)
 
+# --- NEW: Handle BETA_aligned if it exists ---
+if ("BETA_aligned" %in% colnames(df) && !"BETA" %in% colnames(df)) {
+  df <- df %>% rename(BETA = BETA_aligned)
+}
+
 # Basic Validation
 req_cols <- c("CHR", "POS", "REF", "ALT", "Risk_Allele", "BETA")
 missing_cols <- setdiff(req_cols, colnames(df))
 if(length(missing_cols) > 0) stop("Missing required columns: ", paste(missing_cols, collapse=", "))
+
+cat("Reading weights from:", weights_file, "\n")
+df <- fread(weights_file)
+
+# 2. Dynamically Generate Cluster Names (Replacing the need for an external txt file)
+standard_cols <- c("CHR", "POS", "REF", "ALT", "Risk_Allele", "BETA", "Total_GRS", "VAR_ID", "SNP")
+cluster_names <- setdiff(colnames(df), standard_cols)
+
+cat("Detected clusters:", paste(cluster_names, collapse=", "), "\n")
+
+# Save it to the output directory so downstream scripts (like Step 5) can read it
+write_lines(cluster_names, file.path(output_dir, "cluster_names.txt"))
+
 
 # 4. Handle Coordinates (LiftOver hg19 -> hg38 if needed)
 df$POS <- as.integer(df$POS)

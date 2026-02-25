@@ -11,19 +11,25 @@ suppressPackageStartupMessages({
 args <- commandArgs(trailingOnly = TRUE)
 weights_file <- args[1]
 vcf_allele_file <- args[2]
-cluster_names_file <- args[3]
-output_file <- ifelse(length(args) >= 4, args[4], "updated_weights.txt")
+output_file <- ifelse(length(args) >= 3, args[3], "updated_weights.txt")
 
 cat("Reading weights:", weights_file, "\n")
 cat("Reading VCF info:", vcf_allele_file, "\n")
 
-# Read cluster names
-cluster_names <- read_lines(cluster_names_file)
-if(!"Total_GRS" %in% cluster_names) cluster_names <- unique(c("Total_GRS", cluster_names))
-
-# 1. READ WEIGHTS
 # 1. READ WEIGHTS
 weights <- fread(weights_file, header = TRUE, sep="\t")
+
+# Dynamically determine cluster names from the columns
+# We ignore standard columns to isolate just the cluster/score columns
+standard_cols <- c("VAR_ID", "VAR_ID_hg38", "chr", "pos", "REF", "ALT", "risk_allele", "Risk_Allele", "w_a1", "w_a2", "a1", "a2", "CHR", "POS", "BETA", "SNP", "Proxy_Flag", "orig_snp")
+cluster_names <- setdiff(colnames(weights), standard_cols)
+
+# Ensure Total_GRS is included if it exists in the file
+if("Total_GRS" %in% colnames(weights) && !"Total_GRS" %in% cluster_names) {
+  cluster_names <- unique(c("Total_GRS", cluster_names))
+}
+
+cat("Detected cluster columns:", paste(cluster_names, collapse=", "), "\n")
 
 # --- INSERT FIX HERE (Must be before diagnostics) ---
 # Check for capitalization mismatch (common if Proxy Step was skipped)
@@ -51,7 +57,7 @@ weights <- weights %>%
   mutate(w_a1 = toupper(trimws(w_a1)), w_a2 = toupper(trimws(w_a2)))
 
 # 2. READ VCF INFO
-vcf_info <- fread(vcf_allele_file, header = FALSE, col.names = c("VAR_ID_VCF")) %>%
+vcf_info <- fread(vcf_allele_file, header = FALSE, sep = "\t", col.names = c("VAR_ID_VCF")) %>%
   separate(VAR_ID_VCF, into = c("chr", "pos", "REF", "ALT"), sep = ":", convert = TRUE, remove = F) %>%
   mutate(REF = toupper(trimws(REF)), ALT = toupper(trimws(ALT)))
 

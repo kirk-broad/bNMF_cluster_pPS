@@ -101,11 +101,14 @@ for (cluster in cluster_names) {
 }
 
 # Save Histograms
-pdf_file <- file.path(output_dir, "pPS_histograms.pdf")
-pdf(pdf_file, width = 12, height = 10)
+png_file <- file.path(output_dir, "pPS_histograms.png")
+
+# FIX: Add units and resolution so it doesn't output 12x10 pixels!
+png(png_file, width = 12, height = 10, units = "in", res = 300)
+
 do.call(grid.arrange, c(plot_list, ncol = 3))
 dev.off()
-cat("Saved histograms to", pdf_file, "\n")
+cat("Saved histograms to", png_file, "\n")
 
 # B. Correlation Matrix
 cat("Creating correlation matrix...\n")
@@ -123,8 +126,8 @@ if(length(cluster_names) > 1) {
     theme(axis.text.x = element_text(angle = 45, vjust = 1, size = 10, hjust = 1)) +
     labs(title = "Correlation between Partitioned Scores", x="", y="")
   
-  cor_file <- file.path(output_dir, "pPS_correlation.pdf")
-  ggsave(cor_file, plot = p_cor, width = 8, height = 7)
+  cor_file <- file.path(output_dir, "pPS_correlation.png")
+  ggsave(cor_file, plot = p_cor, width = 8, height = 7, dpi = 300, units='in')
   cat("Saved correlation plot to", cor_file, "\n")
 }
 
