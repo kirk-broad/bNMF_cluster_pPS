@@ -113,21 +113,23 @@ if [ "$START_STEP" -le 1 ]; then
     Rscript -e "
     suppressPackageStartupMessages(library(data.table))
     suppressPackageStartupMessages(library(dplyr))
-    suppressPackageStartupMessages(library(tidyr))
-    
+
     weights <- fread('${WEIGHTS_OUTPUT}')
-    
+
     # Handle column name variations
     if('VAR_ID_hg38' %in% names(weights)) { weights <- weights %>% rename(VAR_ID = VAR_ID_hg38) }
 
-    bcftools_input <- weights %>% 
-        separate(VAR_ID, into = c('chr', 'pos', 'a1', 'a2'), sep = ':', remove = FALSE) %>% 
-        mutate(chr = gsub('chr', '', chr)) %>% 
-        arrange(as.integer(chr), as.integer(pos)) %>% 
+    # Use tstrsplit (data.table) instead of tidyr::separate to avoid stringr SIGILL
+    # on HPC nodes with mismatched CPU instruction sets
+    var_parts <- tstrsplit(weights[['VAR_ID']], ':', fixed = TRUE)
+    bcftools_input <- weights %>%
+        mutate(chr = gsub('chr', '', var_parts[[1]]),
+               pos = var_parts[[2]]) %>%
+        arrange(as.integer(chr), as.integer(pos)) %>%
         # Apply Dynamic Prefix
-        mutate(Chr = ${R_PASTE_CMD}, start = pos, end = pos) %>% 
+        mutate(Chr = ${R_PASTE_CMD}, start = pos, end = pos) %>%
         select(Chr, start, end)
-        
+
     fwrite(bcftools_input, '${OUTPUT_DIR}/bcftools_input.txt', sep = '\t', col.names = FALSE)
     "
 fi

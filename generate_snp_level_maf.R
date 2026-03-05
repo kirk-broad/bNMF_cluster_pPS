@@ -59,13 +59,19 @@ if(!"CHR" %in% colnames(weights)) {
   weights <- weights %>%
     mutate(CHR = as.integer(gsub("^chr", "", CHR))) %>%
     mutate(POS = as.integer(POS))
+  # Extract REF/ALT from VAR_ID if not already present (needed for allele-specific join)
+  if (!"REF" %in% colnames(weights)) {
+    weights <- weights %>%
+      separate(VAR_ID, into = c("w_chr", "w_pos", "REF", "ALT"), sep = ":", remove = F) %>%
+      dplyr::select(-w_chr, -w_pos)
+  }
 }
 
 # 4. Merge Data
 cat("Merging datasets...\n")
 merged_data <- weights %>%
-  dplyr::select(VAR_ID, CHR, POS, risk_allele) %>%
-  inner_join(maf_data %>% dplyr::select(CHR, POS, REF, ALT, AF, MAF), by = c("CHR", "POS")) %>%
+  dplyr::select(VAR_ID, CHR, POS, REF, ALT, risk_allele) %>%
+  inner_join(maf_data %>% dplyr::select(CHR, POS, REF, ALT, AF, MAF), by = c("CHR", "POS", "REF", "ALT")) %>%
   mutate(risk_allele_freq = case_when(risk_allele==ALT ~ AF,
                                       risk_allele==REF ~ 1-AF,
                                       TRUE ~ NA_real_)) %>%
