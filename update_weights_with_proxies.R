@@ -196,7 +196,10 @@ if(length(valid_proxies) > 0) {
 
 # --- FINAL MERGE (THE FIX) ---
 if(!"pos" %in% names(weights)) {
-  weights <- weights %>% separate(VAR_ID, into = c("chr", "pos", "a1", "a2"), sep = ":", remove = FALSE, convert = TRUE)
+  var_parts <- tstrsplit(weights[["VAR_ID"]], ":", fixed = TRUE)
+  weights <- weights %>%
+    mutate(chr = var_parts[[1]], pos = as.integer(var_parts[[2]]),
+           a1 = var_parts[[3]], a2 = var_parts[[4]])
 }
 
 # 1. Prepare base status

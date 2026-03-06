@@ -50,10 +50,12 @@ if("VAR_ID_updated" %in% colnames(weights)) {
 
 # Ensure Weights have CHR/POS columns as integers
 if(!"CHR" %in% colnames(weights)) {
+  var_parts <- tstrsplit(weights[["VAR_ID"]], ":", fixed = TRUE)
   weights <- weights %>%
-    separate(VAR_ID, into=c("CHR","POS","REF","ALT"), sep=":", remove = F) %>%
-    mutate(CHR = gsub("^chr","", CHR)) %>%
-    mutate(across(c(CHR, POS), as.integer))
+    mutate(CHR = as.integer(gsub("^chr", "", var_parts[[1]])),
+           POS = as.integer(var_parts[[2]]),
+           REF = var_parts[[3]],
+           ALT = var_parts[[4]])
 } else {
   # If CHR exists, ensure it is integer
   weights <- weights %>%
@@ -61,9 +63,9 @@ if(!"CHR" %in% colnames(weights)) {
     mutate(POS = as.integer(POS))
   # Extract REF/ALT from VAR_ID if not already present (needed for allele-specific join)
   if (!"REF" %in% colnames(weights)) {
+    var_parts <- tstrsplit(weights[["VAR_ID"]], ":", fixed = TRUE)
     weights <- weights %>%
-      separate(VAR_ID, into = c("w_chr", "w_pos", "REF", "ALT"), sep = ":", remove = F) %>%
-      dplyr::select(-w_chr, -w_pos)
+      mutate(REF = var_parts[[3]], ALT = var_parts[[4]])
   }
 }
 

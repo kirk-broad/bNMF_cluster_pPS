@@ -51,15 +51,20 @@ na_risk <- sum(is.na(weights$risk_allele))
 cat("Number of NA risk alleles:", na_risk, "\n")
 
 # Clean
+var_parts <- tstrsplit(weights[["VAR_ID"]], ":", fixed = TRUE)
 weights <- weights %>%
-  mutate(risk_allele = toupper(trimws(risk_allele))) %>%
-  separate(VAR_ID, into = c("chr", "pos", "w_a1", "w_a2"), sep = ":", convert = TRUE, remove = F) %>%
-  mutate(w_a1 = toupper(trimws(w_a1)), w_a2 = toupper(trimws(w_a2)))
+  mutate(risk_allele = toupper(trimws(risk_allele)),
+         chr = var_parts[[1]], pos = as.integer(var_parts[[2]]),
+         w_a1 = toupper(trimws(var_parts[[3]])),
+         w_a2 = toupper(trimws(var_parts[[4]])))
 
 # 2. READ VCF INFO
-vcf_info <- fread(vcf_allele_file, header = FALSE, sep = "\t", col.names = c("VAR_ID_VCF")) %>%
-  separate(VAR_ID_VCF, into = c("chr", "pos", "REF", "ALT"), sep = ":", convert = TRUE, remove = F) %>%
-  mutate(REF = toupper(trimws(REF)), ALT = toupper(trimws(ALT)))
+vcf_info <- fread(vcf_allele_file, header = FALSE, sep = "\t", col.names = c("VAR_ID_VCF"))
+vcf_parts <- tstrsplit(vcf_info[["VAR_ID_VCF"]], ":", fixed = TRUE)
+vcf_info <- vcf_info %>%
+  mutate(chr = vcf_parts[[1]], pos = as.integer(vcf_parts[[2]]),
+         REF = toupper(trimws(vcf_parts[[3]])),
+         ALT = toupper(trimws(vcf_parts[[4]])))
 
 cat("VCF entries:", nrow(vcf_info), "\n")
 
