@@ -32,9 +32,9 @@ if (!file.exists(weights_file)) stop("Weights file not found: ", weights_file)
 cat("Reading weights from:", weights_file, "\n")
 df <- fread(weights_file)
 
-# --- NEW: Handle BETA_aligned if it exists ---
+# Handle BETA_aligned if it exists (some weight files use this column name)
 if ("BETA_aligned" %in% colnames(df) && !"BETA" %in% colnames(df)) {
-  df <- df %>% rename(BETA = BETA_aligned)
+  colnames(df)[colnames(df) == "BETA_aligned"] <- "BETA"
 }
 
 # Basic Validation
@@ -42,11 +42,8 @@ req_cols <- c("CHR", "POS", "REF", "ALT", "Risk_Allele", "BETA")
 missing_cols <- setdiff(req_cols, colnames(df))
 if(length(missing_cols) > 0) stop("Missing required columns: ", paste(missing_cols, collapse=", "))
 
-cat("Reading weights from:", weights_file, "\n")
-df <- fread(weights_file)
-
 # 2. Dynamically Generate Cluster Names (Replacing the need for an external txt file)
-standard_cols <- c("CHR", "POS", "REF", "ALT", "Risk_Allele", "BETA", "Total_GRS", "VAR_ID", "SNP")
+standard_cols <- c("CHR", "POS", "REF", "ALT", "Risk_Allele", "BETA", "BETA_aligned", "Total_GRS", "VAR_ID", "SNP")
 cluster_names <- setdiff(colnames(df), standard_cols)
 
 cat("Detected clusters:", paste(cluster_names, collapse=", "), "\n")
@@ -58,27 +55,31 @@ write_lines(cluster_names, file.path(output_dir, "cluster_names.txt"))
 # 4. Handle Coordinates (LiftOver hg19 -> hg38 if needed)
 df$POS <- as.integer(df$POS)
 
-if (grepl("38", genome_build)) {
+if (grepl("38", genome_build) && !grepl("native", genome_build, ignore.case = TRUE)) {
   cat("Performing LiftOver to hg38...\n")
   if (!file.exists(chain_file)) stop("Chain file not found: ", chain_file)
-  
+
   chain <- import.chain(chain_file)
-  gr <- GRanges(seqnames = paste0("chr", df$CHR), 
+  gr <- GRanges(seqnames = paste0("chr", df$CHR),
                 ranges = IRanges(start = df$POS, width = 1))
-  
+
   lift_result <- liftOver(gr, chain)
-  
+
   # Keep only variants that mapped successfully
   kept_indices <- which(elementNROWS(lift_result) > 0)
   df <- df[kept_indices, ]
-  
+
   mapped_gr <- unlist(lift_result)
   df$POS_Final <- start(mapped_gr)
   df$CHR_Final <- gsub("chr", "", as.character(seqnames(mapped_gr))) # Remove 'chr' prefix for now
-  
+
   cat("LiftOver complete. Dropped", length(lift_result) - length(kept_indices), "variants.\n")
 } else {
-  cat("Keeping coordinates as provided (hg19)...\n")
+  if (grepl("38", genome_build)) {
+    cat("Keeping coordinates as provided (already hg38)...\n")
+  } else {
+    cat("Keeping coordinates as provided (hg19)...\n")
+  }
   df$POS_Final <- df$POS
   df$CHR_Final <- as.character(df$CHR)
 }

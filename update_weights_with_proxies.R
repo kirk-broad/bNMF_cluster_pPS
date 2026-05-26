@@ -163,7 +163,9 @@ if(length(valid_proxies) > 0) {
       proxy_VAR_ID = paste(Coord, proxy_a1, proxy_a2, sep = ":")
     )
   
-  weights_with_snp <- weights %>% mutate(orig_snp = str_before_nth(VAR_ID, ":", 2))
+  weights_with_snp <- weights %>%
+    mutate(orig_snp = str_before_nth(VAR_ID, ":", 2),
+           orig_snp = ifelse(grepl("^chr", orig_snp, ignore.case = TRUE), orig_snp, paste0("chr", orig_snp)))
   
   df_proxy_map <- weights_with_snp %>%
     inner_join(df_my_proxies, by = 'orig_snp') %>%
@@ -188,7 +190,7 @@ if(length(valid_proxies) > 0) {
   df_proxy_map$proxy_risk_allele <- mapply(get_proxy_risk_allele, df_proxy_map$Correlated_Alleles, df_proxy_map$risk_allele)
   
   df_proxy_map <- df_proxy_map %>%
-    dplyr::select(VAR_ID, proxy_VAR_ID, proxy_pos, proxy_a1, proxy_a2, proxy_risk_allele, Proxy_Flag)
+    dplyr::select(VAR_ID, orig_snp, RS_Number, R2, proxy_VAR_ID, proxy_pos, proxy_a1, proxy_a2, proxy_risk_allele, Proxy_Flag)
   
 } else {
   df_proxy_map <- data.frame(VAR_ID=character(), proxy_VAR_ID=character(), proxy_pos=integer(), proxy_a1=character(), proxy_a2=character(), proxy_risk_allele=character(), Proxy_Flag=character())
@@ -204,9 +206,10 @@ if(!"pos" %in% names(weights)) {
 
 # 1. Prepare base status
 all_snps_status <- weights %>%
-  mutate(orig_snp = str_before_nth(VAR_ID, ":", 2)) %>%
-  mutate(Proxy_Flag = ifelse(orig_snp %in% missing_snps, 
-                             ifelse(VAR_ID %in% df_proxy_map$VAR_ID, "Replaced", "No_proxy"), 
+  mutate(orig_snp = str_before_nth(VAR_ID, ":", 2),
+         orig_snp = ifelse(grepl("^chr", orig_snp, ignore.case = TRUE), orig_snp, paste0("chr", orig_snp))) %>%
+  mutate(Proxy_Flag = ifelse(orig_snp %in% missing_snps,
+                             ifelse(VAR_ID %in% df_proxy_map$VAR_ID, "Replaced", "No_proxy"),
                              "Original"))
 
 cat("DEBUG [2]: Before Merge. Risk Allele NAs:", sum(is.na(all_snps_status$risk_allele)), "\n")
@@ -252,5 +255,42 @@ cat("DEBUG [X]: NULL-string risk alleles:", sum(new_weights$risk_allele %in% c("
 write_delim(new_weights, file.path(output_dir, "updated_cluster_weights.txt"), delim = "\t")
 for_VCF <- new_weights %>% dplyr::select(Chr = chr, start = pos, end = pos)
 write_delim(for_VCF, file.path(output_dir, "updated_bcftools_input.txt"), delim = "\t", col_names = FALSE)
+
+# --- Proxy Summary Report ---
+non_cluster_cols <- c("VAR_ID", "Risk_Allele", "risk_allele", "Total_GRS", "BETA",
+                      "chr", "pos", "a1", "a2", "SNP", "Proxy_Flag", "orig_snp",
+                      "proxy_VAR_ID", "proxy_pos", "proxy_a1", "proxy_a2",
+                      "proxy_risk_allele", "Proxy_Flag.x", "Proxy_Flag.y",
+                      "proxy_risk_allele_clean", "risk_allele_clean")
+cluster_cols <- setdiff(names(weights), non_cluster_cols)
+
+if(length(missing_snps) > 0) {
+  # Original weights for missing SNPs (before proxy substitution)
+  orig_missing <- weights %>%
+    mutate(orig_snp = str_before_nth(VAR_ID, ":", 2),
+           orig_snp = ifelse(grepl("^chr", orig_snp, ignore.case = TRUE), orig_snp, paste0("chr", orig_snp))) %>%
+    filter(orig_snp %in% missing_snps) %>%
+    dplyr::select(orig_snp, orig_VAR_ID = VAR_ID, all_of(cluster_cols)) %>%
+    mutate(affected_clusters = apply(dplyr::select(., all_of(cluster_cols)), 1, function(x) {
+      paste(cluster_cols[x != 0], collapse = ";")
+    }))
+
+  # Proxy info (one row per original missing SNP)
+  proxy_info <- df_proxy_map %>%
+    dplyr::select(orig_snp, proxy_RS_Number = RS_Number, proxy_VAR_ID, R2) %>%
+    distinct()
+
+  proxy_summary <- data.frame(orig_snp = missing_snps) %>%
+    left_join(orig_missing, by = "orig_snp") %>%
+    left_join(proxy_info, by = "orig_snp") %>%
+    mutate(status = ifelse(!is.na(proxy_VAR_ID), "Replaced", "No_proxy")) %>%
+    dplyr::select(orig_snp, orig_VAR_ID, status, proxy_RS_Number, proxy_VAR_ID, R2,
+                  affected_clusters, all_of(cluster_cols))
+
+  write_delim(proxy_summary, file.path(output_dir, "proxy_summary.txt"), delim = "\t")
+  cat("Proxy summary written:", nrow(proxy_summary), "missing SNPs,",
+      sum(proxy_summary$status == "Replaced"), "replaced,",
+      sum(proxy_summary$status == "No_proxy"), "unresolved.\n")
+}
 
 cat("Done!\n")

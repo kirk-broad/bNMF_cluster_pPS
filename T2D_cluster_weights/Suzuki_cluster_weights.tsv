@@ -1,4 +1,4 @@
-CHR	POS	REF	ALT	Risk_Allele	BETA_aligned	Body_fat	Obesity	Metabolic_syndrome	Residual_glycaemic	Beta_cell_-PI	Beta_cell_+PI	Lipodystrophy	Liver/lipid_metabolism
+CHR	POS	REF	ALT	Risk_Allele	BETA	Body_fat	Obesity	Metabolic_syndrome	Residual_glycaemic	Beta_cell_-PI	Beta_cell_+PI	Lipodystrophy	Liver/lipid_metabolism
 15	62391608	C	T	C	0.0466	0	0	0	0	0	0.0466	0	0
 12	66245053	G	A	A	0.1652	0	0	0	0.1652	0	0	0	0
 6	31241035	G	A	G	0.1227	0.1227	0	0	0	0	0	0	0

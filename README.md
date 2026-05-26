@@ -1,5 +1,7 @@
 # PPS Pipeline: bNMF Cluster-Based Polygenic Scoring
 
+![Version](https://img.shields.io/badge/version-2.1-blue)
+
 This pipeline automates the generation of partitioned Polygenic Scores (pPS) from bNMF clustering results. It is designed to be flexible, accepting either standardized flat files or raw bNMF outputs, and runs on both Broad Institute infrastructure and standard SLURM clusters.
 
 ## 🚀 Quick Start
@@ -53,3 +55,19 @@ If you have your own weights, provide a single tab-separated file named `cluster
 CHR  POS    REF  ALT  Risk_Allele  BETA  Cluster_BetaCell  Cluster_Lipodystrophy
 1    12345  G    A    A            0.05  0.05              0.00
 2    67890  T    C    T            0.12  0.00              0.12
+```
+
+---
+
+## 📋 Changelog
+
+### v2.1 (2026-02-25)
+- Added `bcftools norm -m -any` to Steps 2 and 4 to correctly handle multi-allelic sites in WGS VCFs — variants queried by position are split into biallelic records before allele matching
+- Added `cluster_names.txt` support for flexible cluster naming
+- Fixed HPC SIGILL crash in Step 7 (`generate_snp_level_maf.R`) on nodes with restricted CPU instruction sets
+- Replaced `tidyr::separate()` with `data.table::tstrsplit()` across all R scripts to avoid SIGILL on HPC nodes
+
+### v2.0 (2026-01-30)
+- Initial public release of the generalized bNMF pPS pipeline
+- Support for Broad Institute and SLURM cluster environments
+- Automated LiftOver (hg19 → hg38), LDlink proxy search, allele alignment, and PLINK2 scoring
